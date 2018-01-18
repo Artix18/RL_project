@@ -4,6 +4,7 @@ import numpy as np
 from itertools import count
 from collections import namedtuple
 
+import ipdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -53,6 +54,7 @@ optimizer = optim.Adam(model.parameters(), lr=3e-2)
 
 
 def select_action(state):
+    #ipdb.set_trace()
     state = torch.from_numpy(state).float().unsqueeze(0)
     probs, state_value = model(Variable(state))
     action = probs.multinomial()
@@ -83,9 +85,9 @@ def finish_episode():
     del model.saved_actions[:]
 
 
-running_reward = 10
+running_reward = 1
 for i_episode in count(1):
-    state = env.reset(np.random.randint(3))
+    state = env.reset(0*np.random.randint(3))
     for t in range(10000): # Don't infinite loop while learning
         action = select_action(state)
         state, reward = env.play_action(action[0,0])
@@ -97,7 +99,7 @@ for i_episode in count(1):
             if ok==0:
                 break
 
-    running_reward = running_reward * 0.99 + reward * 0.01
+    running_reward = running_reward * 0.99 + np.mean(model.rewards) * 0.01
     finish_episode()
     if i_episode % args.log_interval == 0:
         print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(

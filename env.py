@@ -42,7 +42,7 @@ class Env:
                 return self.get_state(),1
             elif nb_lacunes == 1:
                 return self.get_state(),1
-            elif nb_lacunes <= 3 and action == 5: #hint
+            elif nb_lacunes <= 10 and action == 5: #hint
                 return self.get_state(),1
             else:
                 return self.get_state(),-0.1
@@ -54,8 +54,8 @@ class Env:
 
     def next_task(self):
         self.current_task[self.task_id] = 0 #on suppose les taches dans l'ordre
+        if self.task_id == nb_tasks-1:
+            return self.get_state(),0
         self.task_id += 1
-        if self.task_id == nb_tasks:
-            return (self.skills, self.personnalite,self.current_task),0
         self.current_task[self.task_id] = 1
-        return (self.skills, self.personnalite,self.current_task),1
+        return self.get_state(),1
