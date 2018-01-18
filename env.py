@@ -38,7 +38,7 @@ class Env:
             for i in range(self.nb_comp):
                 if self.req_skills[self.task_id][i] > self.skills[i]:
                     nb_lacunes +=1
-            if nb_lacunes == 0:
+            if nb_lacunes == 1:
                 return self.get_state(),1
             elif nb_lacunes == 1:
                 return self.get_state(),1

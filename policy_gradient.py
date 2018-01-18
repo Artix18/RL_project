@@ -71,7 +71,7 @@ def finish_episode():
         R = r + args.gamma * R
         rewards.insert(0, R)
     rewards = torch.Tensor(rewards)
-    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+    #rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
     for (action, value), r in zip(saved_actions, rewards):
         reward = r - value.data[0,0]
         action.reinforce(reward)
@@ -85,7 +85,7 @@ def finish_episode():
     del model.saved_actions[:]
 
 
-running_reward = 1
+running_reward = 0.5
 for i_episode in count(1):
     state = env.reset(0*np.random.randint(3))
     for t in range(10000): # Don't infinite loop while learning
