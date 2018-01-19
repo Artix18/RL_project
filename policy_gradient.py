@@ -29,6 +29,7 @@ args = parser.parse_args()
 env = env.Env()
 #env.seed(args.seed)
 torch.manual_seed(args.seed)
+np.random.seed(args.seed)
 
 
 SavedAction = namedtuple('SavedAction', ['action', 'value'])
@@ -102,9 +103,9 @@ for i_episode in count(1):
     running_reward = running_reward * 0.99 + np.mean(model.rewards) * 0.01
     finish_episode()
     if i_episode % args.log_interval == 0:
-        print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
+        print('Episode {}\tLast length: {:5d}\tAverage reward: {:.2f}'.format(
             i_episode, t, running_reward))
-    if running_reward > 0.95:
+    if i_episode > 10 and running_reward > 0.95:
         print("Solved! Running reward is now {} and "
               "the last episode runs to {} time steps!".format(running_reward, t))
         break
