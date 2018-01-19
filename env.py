@@ -13,6 +13,7 @@ global_actions_theta = np.random.rand(len(global_actions), sz_personnalite)
 class Env:
     def __init__(self):
         self.req_skills = np.random.randint(2, size=(nb_tasks,nb_competences))
+        self.mu = mu
     def reset(self, student_type):
         self.nb_comp=nb_competences
         self.student_type = student_type
@@ -40,7 +41,8 @@ class Env:
         return np.append(np.append(self.skills, self.personnalite),self.current_task)
 
     def play_action(self, action): #this function should return new state and reward. reward=1=>over
-        my_theta = np.abs(np.dot(self.actions_theta[action,:], self.personnalite) / (np.linalg.norm(self.actions_theta[action,:]) * np.linalg.norm(self.personnalite)))
+        my_theta = np.abs(np.dot(self.actions_theta[action,:], self.mu[self.student_type, :]) / (np.linalg.norm(self.actions_theta[action,:]) * np.linalg.norm(self.mu[self.student_type,:])))
+        #np.abs(np.dot(self.actions_theta[action,:], self.personnalite) / (np.linalg.norm(self.actions_theta[action,:]) * np.linalg.norm(self.personnalite)))
         nbPasOk = 0
         #print(my_theta)
         for i in range(self.nb_comp):
