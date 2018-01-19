@@ -42,6 +42,7 @@ class Env:
 
     def play_action(self, action): #this function should return new state and reward. reward=1=>over
         my_theta = np.abs(np.dot(self.actions_theta[action,:], self.mu[self.student_type, :]) / (np.linalg.norm(self.actions_theta[action,:]) * np.linalg.norm(self.mu[self.student_type,:])))
+        my_theta = my_theta ** (1.5) ##pour le rendre plus petit
         #np.abs(np.dot(self.actions_theta[action,:], self.personnalite) / (np.linalg.norm(self.actions_theta[action,:]) * np.linalg.norm(self.personnalite)))
         nbPasOk = 0
         #print(my_theta)

@@ -17,6 +17,13 @@ from reinforce import REINFORCE
 
 viz = Visdom()
 
+#loss
+win_loss = viz.line(Y=np.random.rand(10), opts=dict(showlegend=True))
+
+#rewards
+
+win_rewards = viz.line(Y=np.random.rand(10), opts=dict(showlegend=True))
+
 # bar for thetas = truc^T bidule
 win_theta = viz.heatmap(
     X=np.outer(np.arange(1,4), np.arange(1,10)),
@@ -57,82 +64,27 @@ env = env.Env()
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-
-SavedAction = namedtuple('SavedAction', ['action', 'value'])
-class Policy(nn.Module):
-    def __init__(self):
-        super(Policy, self).__init__()
-        self.affine1 = nn.Linear(18, 128)
-        self.action_head = nn.Linear(128, 9)
-        self.value_head = nn.Linear(128, 1)
-
-        self.saved_actions = []
-        self.rewards = []
-
-    def forward(self, x):
-        x = F.relu(self.affine1(x))
-        action_scores = self.action_head(x)
-        state_values = self.value_head(x)
-        return F.softmax(action_scores), state_values
-
-
-model = Policy()
-optimizer = optim.Adam(model.parameters(), lr=3e-2)
-
-
-def select_action(state):
-    #ipdb.set_trace()
-    state = torch.from_numpy(state).float().unsqueeze(0)
-    probs, state_value = model(Variable(state))
-    action = probs.multinomial()
-    alpha = np.random.rand()
-    ipdb.set_trace()
-    if(alpha < 0.01):
-        #ipdb.set_trace()
-        unif = Variable(torch.from_numpy(np.array([1./9]*9)).float().unsqueeze(0))
-        action = unif.multinomial()
-    model.saved_actions.append(SavedAction(action, state_value))
-    return action.data
-
-
-def finish_episode():
-    R = 0
-    saved_actions = model.saved_actions
-    value_loss = 0
-    rewards = []
-    for r in model.rewards[::-1]:
-        R = r + args.gamma * R
-        rewards.insert(0, R)
-    rewards = torch.Tensor(rewards)
-    #rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
-    for (action, value), r in zip(saved_actions, rewards):
-        reward = r - value.data[0,0]
-        action.reinforce(reward)
-        value_loss += F.smooth_l1_loss(value, Variable(torch.Tensor([r])))
-    optimizer.zero_grad()
-    final_nodes = [value_loss] + list(map(lambda p: p.action, saved_actions))
-    gradients = [torch.ones(1)] + [None] * len(saved_actions)
-    autograd.backward(final_nodes, gradients)
-    optimizer.step()
-    del model.rewards[:]
-    del model.saved_actions[:]
-
 agent = REINFORCE()
 
 running_reward = 0.5
+disp_rewards = []
+total_losses = []
+value_losses = []
 for i_episode in count(1):
     state = env.reset(np.random.randint(3))
     entropies = []
     log_probs = []
     rewards = []
+    vls=[]
     for t in range(10000): # Don't infinite loop while learning
-        action, log_prob, entropy = agent.select_action(state)
+        action, log_prob, entropy, value_estim = agent.select_action(state)
         state, reward = env.play_action(action[0])
 
         #model.rewards.append(reward)
         entropies.append(entropy)
         log_probs.append(log_prob)
         rewards.append(reward)
+        vls.append(value_estim)
         
         if reward==1:
             state, ok = env.next_task()
@@ -142,7 +94,11 @@ for i_episode in count(1):
     #mean_action = np.mean(model.saved_actions)
     
     running_reward = running_reward * 0.99 + np.mean(rewards) * 0.01
-    agent.update_parameters(rewards, log_probs, entropies, args.gamma)
+    disp_rewards.append(running_reward)
+    total_loss, value_loss = agent.update_parameters(rewards, log_probs, entropies, vls, args.gamma)
+    #ipdb.set_trace()
+    total_losses.append(total_loss.data.numpy()[0])
+    value_losses.append(value_loss.data.numpy()[0])
     #finish_episode()
     if i_episode % args.log_interval == 0:
         print('Episode {}\tLast length: {:5d}\tAverage reward: {:.2f}'.format(
@@ -152,7 +108,7 @@ for i_episode in count(1):
         probs= np.zeros((3,9))
         for st_id in range(3):
             env.reset(st_id)
-            #env.personnalite = env.mu[st_id,:]
+            env.personnalite = env.mu[st_id,:]
             disp_state = env.get_state()
             disp_state = torch.from_numpy(disp_state).float().unsqueeze(0)
             my_probs, my_state_value = agent.model(Variable(disp_state))
@@ -165,13 +121,21 @@ for i_episode in count(1):
         viz.heatmap(X=truc, win=win_theta, opts=dict(
         columnnames=['a', 'b', 'c', 'd', 'e', 'f','g','h','i'],
         rownames=['type_1', 'type_2', 'type_3'],
+        title='theta for each pair (student_type, action)'
         #colormap='Electric',
         ))
         viz.heatmap(X=probs,win=win_probs, opts=dict(
         columnnames=['a', 'b', 'c', 'd', 'e', 'f','g','h','i'],
-        rownames=['type_1', 'type_2', 'type_3'],
+        rownames=['mu_1', 'mu_2', 'mu_3'],
+        title='Probabilities (output of nn) for profile mu_i'
         #colormap='Electric',
-    ))
+        ))
+        viz.line(X=np.arange(1,i_episode+1), Y=np.array(disp_rewards), win=win_rewards, opts=dict(title='Evolution of the running reward', xlabel='episode', ylabel='reward'))
+        vl = np.array(value_losses)
+        tl = np.array(total_losses)
+        #ipdb.set_trace()
+        my_y = np.array([vl, tl]).T
+        viz.line(X=np.arange(1,i_episode+1), Y=my_y, win=win_loss, opts=dict(title='Evolution of the losses', legend=['value_loss','total_loss'],xlabel='episode', ylabel='loss'))
     if i_episode > 10 and running_reward > 0.95:
         print("Solved! Running reward is now {} and "
               "the last episode runs to {} time steps!".format(running_reward, t))
